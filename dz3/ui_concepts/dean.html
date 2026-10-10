@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Деканат</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+      body { margin: 0; background: #f4f6f8; color: #1b2838; font-family: "IBM Plex Sans", sans-serif; }
+      header { background: #0b3a75; color: white; padding: 16px 28px; display: flex; justify-content: space-between; }
+      h1 { margin: 0; font-size: 20px; font-weight: 600; }
+      main { padding: 24px 28px; }
+      .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+      select, button { font: inherit; border: 1px solid #c5d0dc; background: white; padding: 8px 10px; }
+      button.primary { background: #0b3a75; color: white; border-color: #0b3a75; }
+      table { width: 100%; border-collapse: collapse; background: white; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e3e8ee; font-size: 14px; }
+      th { background: #e8eef5; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+      .bad { color: #9d1c2b; font-weight: 600; }
+      .ok { color: #0b3a75; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Дедлайн · реестр заданий</h1>
+      <div>Алина Ковалёва</div>
+    </header>
+    <main>
+      <div class="toolbar">
+        <select><option>Все статусы</option></select>
+        <select><option>Все предметы</option></select>
+        <button class="primary">Добавить запись</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Предмет</th><th>Название</th><th>Срок</th><th>Приоритет</th><th>Статус</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>История</td><td>Эссе про городской транспорт</td><td class="bad">08.10.2026</td><td>Высокий</td><td class="bad">К выполнению</td></tr>
+          <tr><td>Алгоритмы</td><td>Лабораторная по графам</td><td>12.10.2026</td><td>Средний</td><td class="ok">В работе</td></tr>
+          <tr><td>Мат. анализ</td><td>Конспект лекции о пределах</td><td>09.10.2026</td><td>Низкий</td><td>Готово</td></tr>
+          <tr><td>Философия</td><td>План реферата</td><td>20.10.2026</td><td>Средний</td><td>К выполнению</td></tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

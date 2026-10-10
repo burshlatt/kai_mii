@@ -1,0 +1,103 @@
+# Бэкенд «Дедлайна»
+
+## Архитектура
+
+Браузер говорит только с фронтендом. Vite в разработке и nginx в Docker проксируют `/api` на Express. Express ходит в PostgreSQL. Сессия — JWT в cookie `deadline_session` (httpOnly). Отдельная cookie `deadline_csrf` читается скриптом и возвращается заголовком на изменяющих запросах.
+
+```text
+Браузер → Vite :5173 или nginx :8080 → Express :3001 → PostgreSQL
+monitor → GET /api/health
+```
+
+Почему не Supabase. Заданию нужен свой контур: учебные строки не должны появляться в чужом проекте ради скорости. Своя схема, свой `docker-compose` и политики доступа в запросах (`user_id` в каждом `WHERE`) закрывают тот же смысл, что RLS, без аккаунта BaaS. На VPS поднимается compose. Локально Docker не стоял, поэтому проверка шла на PostgreSQL 16, кластер пользователя `deadline`, порт 5433. Системную роль PostgreSQL не меняли.
+
+Схема генерировалась из требований задания 3 и лежит в `backend/sql/001_init.sql`. Приложение применяет её на старте, повторный запуск безопасен: `CREATE TABLE IF NOT EXISTS`.
+
+## Сущности
+
+`users`: почта уникальна, пароль nullable, либо пароль, либо пара `oauth_provider` + `oauth_subject`.
+
+`assignments`: принадлежит `user_id`, каскадное удаление вместе с пользователем. Статус и приоритет ограничены `CHECK`. Индекс `(user_id, due_at)`.
+
+Просрочка в SQL совпадает с чистой функцией: статус не `done` и `due_at < now()`. Готовая работа с прошедшей датой в счётчик не входит. Это проверено интеграционным тестом: после смены статуса в `done` поле `summary.overdue` становится 0.
+
+## API
+
+Базовый префикс `/api`. Тело ошибок: `{ "error": { "code", "message", "fields?" } }`.
+
+| Метод | Путь | Кто | Что |
+| --- | --- | --- | --- |
+| GET | `/health` | кто угодно | `{ status, db, uptimeSeconds }`. 503, если `SELECT 1` не прошёл |
+| POST | `/auth/register` | гость | 201 и сессия. 409, если почта занята |
+| POST | `/auth/login` | гость | 200 и сессия. 401 «Неверная почта или пароль» |
+| POST | `/auth/logout` | сессия + CSRF | 204, cookie сняты |
+| GET | `/auth/me` | сессия | `{ user: { id, email, name } }` |
+| GET | `/auth/oauth/:provider/start` | гость | 302 на провайдера или на вход с `oauth_unavailable` |
+| GET | `/auth/oauth/:provider/callback` | гость | 302 на `/` или на вход с кодом ошибки |
+| GET | `/assignments` | сессия | лента. Query: `status`, `course`, `overdue=1` |
+| GET | `/assignments/summary` | сессия | сводка по всем своим заданиям |
+| POST | `/assignments` | сессия + CSRF | 201 |
+| GET | `/assignments/:id` | сессия | 404, если не своё |
+| PATCH | `/assignments/:id` | сессия + CSRF | частичное обновление |
+| DELETE | `/assignments/:id` | сессия + CSRF | 204 |
+
+Провайдер в пути — только `google` или `yandex`.
+
+### Примеры
+
+Регистрация:
+
+```bash
+curl -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"email":"alina@example.com","name":"Алина","password":"demo-pass-1"}' \
+  http://127.0.0.1:3001/api/auth/register
+```
+
+Сводка, cookie уже есть:
+
+```bash
+curl -b cookies.txt http://127.0.0.1:3001/api/assignments/summary
+```
+
+Ответ на проверенных данных: `{"summary":{"total":4,"todo":2,"inProgress":1,"done":1,"overdue":1}}`.
+
+Создание требует заголовок `x-csrf-token` со значением cookie `deadline_csrf`. Без него ответ 403 `csrf_failed`.
+
+Чужой `GET /assignments/:id` отвечает 404. Это есть в `backend/tests/api.test.ts`.
+
+## Безопасность
+
+- Пароль: bcrypt, cost 12. Если пользователя нет, сравнение всё равно идёт с заранее посчитанным хешем, чтобы ответ не отличался по времени «почты нет».
+- JWT проверяется схемой: в `sub` должен быть uuid. Секрет короче 16 символов не даёт процессу стартовать.
+- CSRF сравнивается через `timingSafeEqual`.
+- CORS: один origin, `credentials: true`.
+- Лимит 30 запросов за 15 минут на регистрацию и вход.
+- SQL собирается только из белого списка колонок, значения — параметры.
+- Helmet без HSTS: на локальном HTTP этот заголовок мешает. На HTTPS его должен добавить прокси.
+- Сид `npm run seed` отказывается работать при `NODE_ENV=production`.
+
+## Логи
+
+JSON в stdout через pino. Поля пароля, токена, cookie и authorization вырезаются. Строка запроса пишется как метод, путь, статус и миллисекунды, без тела.
+
+Фрагмент реального прогона:
+
+```text
+{"level":30,"method":"POST","path":"/api/auth/login","status":200,"ms":407}
+{"level":30,"method":"GET","path":"/api/assignments/summary","status":200,"ms":2}
+{"level":40,"code":"unauthorized","status":401,"path":"/api/auth/me","msg":"Войдите, чтобы продолжить."}
+```
+
+В этих строках нет пароля, хотя логин как раз проверял пароль. Уровень 40 — предупреждение на ожидаемый 401 гостя, не падение процесса.
+
+Промпт, которым такой фрагмент читается: «Вот JSON-логи API. Найди запросы с ошибками, скажи, ошибка клиента или сервера, и не повторяй секреты, даже если они вдруг попали в строку». По фрагменту выше: единственная ошибка — 401 на `/api/auth/me` без cookie, это клиентский отказ во входе, сервер жив, health до этого был 200.
+
+## Тесты и запуск
+
+`backend/tests/api.test.ts` на живой базе проходит регистрацию, дубликат почты, неверный пароль, отказ без CSRF, ошибку валидации, создание, сводку просрочки, чужой доступ, смену статуса, удаление, выход и редирект ненастроенного OAuth. `backend/tests/oauth.test.ts` проводит успешный вход Google и Яндекса, повторный вход тем же subject, отмену, пустой code, битый state, занятую почту и отказ обмена code. `backend/tests/monitor.test.ts` проверяет, когда проверка здоровья становится тревогой.
+
+```bash
+cd backend && npm test && npm run build
+```
+
+Переменные для теста подставляет `backend/tests/env.ts`, если их ещё нет в окружении. CI задаёт свои, см. `.github/workflows/ci.yml`.

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Маркер</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;800&display=swap" rel="stylesheet" />
+    <style>
+      body { margin: 0; background: #111; color: #111; font-family: Manrope, sans-serif; }
+      header { background: #ffe14a; padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; }
+      h1 { margin: 0; font-size: 42px; letter-spacing: -0.04em; }
+      main { padding: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      article { background: #fff36b; padding: 18px; min-height: 160px; transform: rotate(-1deg); box-shadow: 6px 6px 0 #ffe14a; }
+      article:nth-child(2) { background: #fff; color: #111; transform: rotate(1deg); }
+      article:nth-child(3) { background: #ff5a36; color: #fff; transform: rotate(0.5deg); }
+      .tag { font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+      h2 { margin: 8px 0; font-size: 28px; letter-spacing: -0.03em; }
+      button { background: #111; color: #ffe14a; border: 0; font: inherit; font-weight: 800; padding: 12px 16px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ДЕДЛАЙН</h1>
+      <button>Новая бумажка</button>
+    </header>
+    <main>
+      <article>
+        <div class="tag">История · горит</div>
+        <h2>Эссе про транспорт</h2>
+        <p>Сдать было 8 октября. Всё ещё пусто.</p>
+      </article>
+      <article>
+        <div class="tag">Алгоритмы · в работе</div>
+        <h2>Лаба по графам</h2>
+        <p>Осталось два дня. Средний приоритет.</p>
+      </article>
+      <article>
+        <div class="tag">Философия · можно позже</div>
+        <h2>План реферата</h2>
+        <p>Десять дней в запасе.</p>
+      </article>
+      <article style="background:#d7ff4a">
+        <div class="tag">Сводка</div>
+        <h2>1 из 4 горит</h2>
+        <p>Яркая доска, а не таблица.</p>
+      </article>
+    </main>
+  </body>
+</html>

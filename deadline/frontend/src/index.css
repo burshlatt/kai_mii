@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-paper: #efe6d6;
+  --color-ink: #1e2430;
+  --color-seal: #8f3d2b;
+  --color-moss: #2c4a3e;
+  --color-card: #fbf6ee;
+  --color-line: #ddcfb8;
+  --color-muted: #6e655c;
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Source Sans 3', sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #efe6d6;
+  color: #1e2430;
+  font-family: 'Source Sans 3', sans-serif;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}
