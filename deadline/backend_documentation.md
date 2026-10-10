@@ -100,4 +100,4 @@ JSON в stdout через pino. Поля пароля, токена, cookie и a
 cd backend && npm test && npm run build
 ```
 
-Переменные для теста подставляет `backend/tests/env.ts`, если их ещё нет в окружении. CI задаёт свои, см. `.github/workflows/ci.yml`.
+Переменные для теста подставляет `backend/tests/env.ts`, если их ещё нет в окружении. CI задаёт свои, см. `.github/workflows/ci.yml` в корне репозитория.

@@ -2,7 +2,7 @@
 
 ## CI
 
-Файл `.github/workflows/ci.yml`.
+Файл `.github/workflows/ci.yml` в корне репозитория. GitHub не читает workflow из `deadline/.github`: каталог должен лежать рядом с `dz1` и `deadline`, иначе вкладка Actions пустая.
 
 На push и pull request:
 
@@ -13,7 +13,7 @@
 
 Деплой на этой же ветке делает `scripts/remote-deploy.sh`, если переменная репозитория `DEPLOY_ENABLED` равна `true` и заданы секреты `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`. Скрипт копирует дерево в `/opt/deadline` на сервере (без `.env`, `.git` и `node_modules`) и там выполняет `docker compose up -d --build`. Образы в реестр не публикуются, поэтому на сервере собирается только что приехавшее дерево, а не `docker compose pull`. Файл `.env` на сервере уже должен лежать: секреты из GitHub в репозиторий не попадают. После подъёма контейнер API один раз запускает `node dist/monitor-cli.js --once` на `http://127.0.0.1:3001/api/health`.
 
-Те же проверки, что в job backend и frontend, включая `npm audit --audit-level=high`, локально повторяет `sh scripts/ci.sh`. GitHub Actions отработает на первом push в `main`: до этого коммитов в репозитории нет, удалённый прогон смотреть не на чем.
+Те же проверки, что в job backend и frontend, включая `npm audit --audit-level=high`, локально повторяет `sh scripts/ci.sh`. Шаги `npm ci` и `docker compose` в workflow идут из `deadline/backend`, `deadline/frontend` и `deadline`, потому что корень git — это весь учебный репозиторий, а не только приложение.
 
 Конфигурацию workflow сначала набросал агент по требованиям «линт, тесты, сборка, аудит, образы на main». В файл попал сервис Postgres с healthcheck, потому что интеграционный тест без базы бессмысленен.
 

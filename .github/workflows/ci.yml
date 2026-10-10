@@ -32,24 +32,24 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: deadline/backend/package-lock.json
       - name: Install
-        working-directory: backend
+        working-directory: deadline/backend
         run: npm ci
       - name: Lint
-        working-directory: backend
+        working-directory: deadline/backend
         run: npm run lint
       - name: Format
-        working-directory: backend
+        working-directory: deadline/backend
         run: npm run format:check
       - name: Test
-        working-directory: backend
+        working-directory: deadline/backend
         run: npm test
       - name: Build
-        working-directory: backend
+        working-directory: deadline/backend
         run: npm run build
       - name: Audit
-        working-directory: backend
+        working-directory: deadline/backend
         run: npm audit --audit-level=high
 
   frontend:
@@ -60,24 +60,24 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: deadline/frontend/package-lock.json
       - name: Install
-        working-directory: frontend
+        working-directory: deadline/frontend
         run: npm ci
       - name: Lint
-        working-directory: frontend
+        working-directory: deadline/frontend
         run: npm run lint
       - name: Format
-        working-directory: frontend
+        working-directory: deadline/frontend
         run: npm run format:check
       - name: Test
-        working-directory: frontend
+        working-directory: deadline/frontend
         run: npm test
       - name: Build
-        working-directory: frontend
+        working-directory: deadline/frontend
         run: npm run build
       - name: Audit
-        working-directory: frontend
+        working-directory: deadline/frontend
         run: npm audit --audit-level=high
 
   images:
@@ -87,6 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build images
+        working-directory: deadline
         env:
           JWT_SECRET: ci-secret-change-me
           FRONTEND_ORIGIN: http://localhost:8080
@@ -94,6 +95,7 @@ jobs:
         run: docker compose build
       - name: Deploy
         if: vars.DEPLOY_ENABLED == 'true'
+        working-directory: deadline
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
