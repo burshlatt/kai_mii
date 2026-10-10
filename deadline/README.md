@@ -38,7 +38,7 @@ API через прокси Vite: http://localhost:5173/api/health
 cd backend && npm run seed
 ```
 
-Почта `alina@example.com`, пароль `demo-pass-1`.
+Почта `bulat@mail.ru`, пароль `12345`. Имя в списке: Каримов Булат.
 
 Проверки:
 
@@ -52,13 +52,16 @@ npm run lint --prefix frontend
 ## Docker
 
 ```bash
-# В .env задайте JWT_SECRET длиной от 16 символов
+# Из корня репозитория: Docker, копия .env и JWT_SECRET
+./setup.sh
+
+cd deadline
 docker compose up --build
 ```
 
-Сайт откроется на http://localhost:8080 . Nginx отдаёт статику и проксирует `/api` в контейнер API. База — сервис `db`. Сервис `monitor` каждые 30 секунд читает `/api/health` и пишет `health alert`, если ответ не 200 или база не `up`.
+Сайт откроется на http://localhost:8080 . Nginx отдаёт статику и проксирует `/api` в контейнер API. База — сервис `db`, отдельный PostgreSQL на машине не нужен. Одноразовый сервис `seed` создаёт пользователя `bulat@mail.ru` с паролем `12345`. Сервис `monitor` каждые 30 секунд читает `/api/health` и пишет `health alert`, если ответ не 200 или база не `up`.
 
-На машине, где собирался этот репозиторий, Docker не был установлен. Схема и API проверены на локальном PostgreSQL 16, порт 5433, пользователь `deadline`. Файл `docker-compose.yml` — путь для VPS.
+На машине, где собирался этот репозиторий, Docker не был установлен, поэтому проверка шла на локальном PostgreSQL 16, порт 5433. Если каталога `deadline/.pgdata` нет, `./start.sh` из корня репозитория сам вызывает `docker compose up --build`.
 
 ## Выкладка
 

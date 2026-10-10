@@ -35,6 +35,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      seed:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -59,6 +61,20 @@ services:
       LOG_LEVEL: info
     command: ["node", "dist/monitor-cli.js"]
     restart: unless-stopped
+
+  seed:
+    build: ./backend
+    image: deadline-api
+    environment:
+      NODE_ENV: production
+      SEED_DEMO: "1"
+      DATABASE_URL: postgresql://deadline:deadline@db:5432/deadline
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "dist/seed.js"]
+    restart: "no"
 
   web:
     build:

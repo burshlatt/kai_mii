@@ -4,13 +4,13 @@ import { createPool, findUserByEmail, insertAssignment, insertUser, migrate } fr
 import { logger } from './logger';
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' && process.env.SEED_DEMO !== '1') {
     throw new Error('seed is refused in production');
   }
   const config = getConfig();
   const pool = createPool(config.databaseUrl);
   await migrate(pool);
-  const email = 'alina@example.com';
+  const email = 'bulat@mail.ru';
   const existing = await findUserByEmail(pool, email);
   if (existing) {
     logger.info({ email }, 'seed user already exists');
@@ -19,8 +19,8 @@ async function main(): Promise<void> {
   }
   const user = await insertUser(pool, {
     email,
-    name: 'Алина',
-    passwordHash: await hashPassword('demo-pass-1'),
+    name: 'Каримов Булат',
+    passwordHash: await hashPassword('12345'),
   });
   const now = Date.now();
   const day = 24 * 60 * 60 * 1000;

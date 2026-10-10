@@ -45,12 +45,12 @@ monitor → GET /api/health
 
 ### Примеры
 
-Регистрация:
+Вход демо-пользователя. Регистрация нового аккаунта по-прежнему требует пароль не короче 8 символов, этот пароль задан только сидом:
 
 ```bash
 curl -c cookies.txt -H 'Content-Type: application/json' \
-  -d '{"email":"alina@example.com","name":"Алина","password":"demo-pass-1"}' \
-  http://127.0.0.1:3001/api/auth/register
+  -d '{"email":"bulat@mail.ru","password":"12345"}' \
+  http://127.0.0.1:3001/api/auth/login
 ```
 
 Сводка, cookie уже есть:
@@ -74,7 +74,7 @@ curl -b cookies.txt http://127.0.0.1:3001/api/assignments/summary
 - Лимит 30 запросов за 15 минут на регистрацию и вход.
 - SQL собирается только из белого списка колонок, значения — параметры.
 - Helmet без HSTS: на локальном HTTP этот заголовок мешает. На HTTPS его должен добавить прокси.
-- Сид `npm run seed` отказывается работать при `NODE_ENV=production`.
+- Сид `npm run seed` отказывается работать при `NODE_ENV=production`, если не задан `SEED_DEMO=1`. В Docker этот флаг стоит только у одноразового сервиса `seed`.
 
 ## Логи
 
