@@ -139,3 +139,30 @@ test('health, auth, crud, validation, csrf and ownership', async () => {
   const afterLogout = await agent.get('/api/auth/me');
   assert.equal(afterLogout.status, 401);
 });
+
+test('cron health accepts only the bearer secret', async () => {
+  const denied = await request(app).get('/api/cron/health');
+  assert.equal(denied.status, 401);
+
+  const previous = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'cron-secret-change-me';
+  try {
+    const ok = await request(app)
+      .get('/api/cron/health')
+      .set('Authorization', 'Bearer cron-secret-change-me');
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.ok, true);
+    assert.equal(ok.body.db, 'up');
+
+    const wrong = await request(app)
+      .get('/api/cron/health')
+      .set('Authorization', 'Bearer cron-secret-change-no');
+    assert.equal(wrong.status, 401);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.CRON_SECRET;
+    } else {
+      process.env.CRON_SECRET = previous;
+    }
+  }
+});

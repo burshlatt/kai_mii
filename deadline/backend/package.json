@@ -10,6 +10,7 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "monitor": "tsx src/monitor-cli.ts",
+    "migrate": "tsx src/migrate-cli.ts",
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {

@@ -12,6 +12,7 @@ import {
   readSession,
   setAuthCookies,
   signSession,
+  tokensMatch,
   verifyPassword,
 } from './auth';
 import type { AppConfig } from './config';
@@ -38,9 +39,10 @@ import {
 } from './db';
 import { errorMiddleware, HttpError, wrap } from './http';
 import { logger } from './logger';
+import { oauthBase, originAllowed, secureCookie, siteOrigin } from './origin';
 import {
-  OAUTH_STATE_COOKIE,
   buildAuthorizeUrl,
+  clearState,
   isOAuthProvider,
   issueState,
   loadProfile,
@@ -54,6 +56,14 @@ interface AuthedRequest extends Request {
 
 function userIdOf(req: Request): string {
   return (req as AuthedRequest).userId;
+}
+
+function cronAuthorized(header: string | undefined): boolean {
+  const secret = process.env.CRON_SECRET ?? '';
+  if (secret.length < 16 || !header) {
+    return false;
+  }
+  return tokensMatch(header, `Bearer ${secret}`);
 }
 
 export function createApp(pool: Pool, config: AppConfig = getConfig()): express.Express {
@@ -81,7 +91,13 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
   );
   app.use(
     cors({
-      origin: config.frontendOrigin,
+      origin(origin, callback) {
+        if (!origin || originAllowed(origin, config)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: true,
     }),
   );
@@ -130,6 +146,24 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
     }),
   );
 
+  app.get(
+    '/api/cron/health',
+    wrap(async (req, res) => {
+      res.setHeader('Cache-Control', 'no-store');
+      if (!cronAuthorized(req.get('authorization'))) {
+        throw new HttpError(401, 'unauthorized', 'Нет доступа.');
+      }
+      try {
+        await pool.query('SELECT 1');
+        logger.info({ alert: false, db: 'up' }, 'health ok');
+        res.json({ ok: true, db: 'up' });
+      } catch (error) {
+        logger.error({ err: error, alert: true, db: 'down' }, 'health alert');
+        res.status(503).json({ ok: false, db: 'down' });
+      }
+    }),
+  );
+
   app.post(
     '/api/auth/register',
     authLimiter,
@@ -144,7 +178,7 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
         name: input.name,
         passwordHash: await hashPassword(input.password),
       });
-      setAuthCookies(res, signSession(user.id, config), config);
+      setAuthCookies(res, signSession(user.id, config), config, secureCookie(config));
       res.status(201).json({ user: { id: user.id, email: user.email, name: user.name } });
     }),
   );
@@ -159,7 +193,7 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
       if (!user || !user.passwordHash || !matches) {
         throw new HttpError(401, 'invalid_credentials', 'Неверная почта или пароль.');
       }
-      setAuthCookies(res, signSession(user.id, config), config);
+      setAuthCookies(res, signSession(user.id, config), config, secureCookie(config));
       res.json({ user: { id: user.id, email: user.email, name: user.name } });
     }),
   );
@@ -168,7 +202,7 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
     '/api/auth/logout',
     wrap(async (req, res) => {
       assertCsrf(req);
-      clearAuthCookies(res, config);
+      clearAuthCookies(res, config, secureCookie(config));
       res.status(204).end();
     }),
   );
@@ -182,7 +216,7 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
       }
       const user = await findUserById(pool, userId);
       if (!user) {
-        clearAuthCookies(res, config);
+        clearAuthCookies(res, config, secureCookie(config));
         throw new HttpError(401, 'unauthorized', 'Войдите, чтобы продолжить.');
       }
       res.json({ user: { id: user.id, email: user.email, name: user.name } });
@@ -196,11 +230,12 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
       return;
     }
     if (!providerConfigured(provider, config)) {
-      res.redirect(`${config.frontendOrigin}/login?error=oauth_unavailable`);
+      res.redirect(`${siteOrigin(req, config)}/login?error=oauth_unavailable`);
       return;
     }
-    const state = issueState(res, config);
-    res.redirect(buildAuthorizeUrl(provider, state, config));
+    const secure = secureCookie(config);
+    const state = issueState(res, config, secure);
+    res.redirect(buildAuthorizeUrl(provider, state, config, oauthBase(req, config)));
   });
 
   app.get(
@@ -210,9 +245,11 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
       if (!isOAuthProvider(provider)) {
         throw new HttpError(404, 'not_found', 'Провайдер не поддерживается.');
       }
+      const secure = secureCookie(config);
+      const site = siteOrigin(req, config);
       const fail = (code: string): void => {
-        res.clearCookie(OAUTH_STATE_COOKIE, { path: '/' });
-        res.redirect(`${config.frontendOrigin}/login?error=${code}`);
+        clearState(res, secure);
+        res.redirect(`${site}/login?error=${code}`);
       };
       if (!providerConfigured(provider, config)) {
         fail('oauth_unavailable');
@@ -234,7 +271,7 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
         return;
       }
       try {
-        const profile = await loadProfile(provider, code, config);
+        const profile = await loadProfile(provider, code, config, oauthBase(req, config));
         const linked = await findUserByOAuth(pool, provider, profile.subject);
         let user = linked;
         if (!user) {
@@ -250,9 +287,9 @@ export function createApp(pool: Pool, config: AppConfig = getConfig()): express.
             subject: profile.subject,
           });
         }
-        setAuthCookies(res, signSession(user.id, config), config);
-        res.clearCookie(OAUTH_STATE_COOKIE, { path: '/' });
-        res.redirect(`${config.frontendOrigin}/`);
+        setAuthCookies(res, signSession(user.id, config), config, secure);
+        clearState(res, secure);
+        res.redirect(`${site}/`);
       } catch (error) {
         logger.warn({ err: error, provider }, 'oauth callback failed');
         fail('oauth_failed');

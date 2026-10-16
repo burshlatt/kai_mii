@@ -48,24 +48,33 @@ export function readSession(req: Request, config: AppConfig): string | null {
   }
 }
 
-function baseCookie(config: AppConfig): CookieOptions {
+function baseCookie(config: AppConfig, secure = config.cookieSecure): CookieOptions {
   return {
     sameSite: 'lax',
-    secure: config.cookieSecure,
+    secure,
     path: '/',
     maxAge: SESSION_DAYS * 24 * 60 * 60 * 1000,
   };
 }
 
-export function setAuthCookies(res: Response, token: string, config: AppConfig): string {
+export function setAuthCookies(
+  res: Response,
+  token: string,
+  config: AppConfig,
+  secure = config.cookieSecure,
+): string {
   const csrf = crypto.randomBytes(32).toString('hex');
-  res.cookie(SESSION_COOKIE, token, { ...baseCookie(config), httpOnly: true });
-  res.cookie(CSRF_COOKIE, csrf, { ...baseCookie(config), httpOnly: false });
+  res.cookie(SESSION_COOKIE, token, { ...baseCookie(config, secure), httpOnly: true });
+  res.cookie(CSRF_COOKIE, csrf, { ...baseCookie(config, secure), httpOnly: false });
   return csrf;
 }
 
-export function clearAuthCookies(res: Response, config: AppConfig): void {
-  const options = { ...baseCookie(config), maxAge: 0 };
+export function clearAuthCookies(
+  res: Response,
+  config: AppConfig,
+  secure = config.cookieSecure,
+): void {
+  const options = { ...baseCookie(config, secure), maxAge: 0 };
   res.clearCookie(SESSION_COOKIE, { ...options, httpOnly: true });
   res.clearCookie(CSRF_COOKIE, { ...options, httpOnly: false });
 }

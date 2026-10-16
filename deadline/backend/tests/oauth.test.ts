@@ -219,3 +219,36 @@ test('oauth callback reports denial, a bad state, a taken email and a provider f
   assert.match(String(failed.headers.location), /error=oauth_failed$/);
   restoreFetch();
 });
+
+test('vercel host is used for the oauth callback and the secure cookie', async () => {
+  const previousVercel = process.env.VERCEL;
+  const previousUrl = process.env.VERCEL_URL;
+  process.env.VERCEL = '1';
+  process.env.VERCEL_URL = 'deadline-preview.vercel.app';
+  try {
+    const start = await request(app)
+      .get('/api/auth/oauth/google/start')
+      .set('X-Forwarded-Host', 'deadline-preview.vercel.app')
+      .set('X-Forwarded-Proto', 'https')
+      .redirects(0);
+    assert.equal(start.status, 302);
+    const location = new URL(String(start.headers.location));
+    assert.equal(
+      location.searchParams.get('redirect_uri'),
+      'https://deadline-preview.vercel.app/api/auth/oauth/google/callback',
+    );
+    const cookie = String(start.headers['set-cookie']);
+    assert.match(cookie, /Secure/);
+  } finally {
+    if (previousVercel === undefined) {
+      delete process.env.VERCEL;
+    } else {
+      process.env.VERCEL = previousVercel;
+    }
+    if (previousUrl === undefined) {
+      delete process.env.VERCEL_URL;
+    } else {
+      process.env.VERCEL_URL = previousUrl;
+    }
+  }
+});

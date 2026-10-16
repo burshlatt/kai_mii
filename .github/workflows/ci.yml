@@ -101,3 +101,40 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: sh scripts/remote-deploy.sh
+
+  vercel:
+    if: >-
+      vars.VERCEL_DEPLOY_ENABLED == 'true' &&
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+      )
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: vercel-${{ github.event_name }}-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Deploy
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            environment=production
+            prod_flag=--prod
+          else
+            environment=preview
+            prod_flag=
+          fi
+          vercel pull --yes --environment="$environment" --token="$VERCEL_TOKEN"
+          vercel build $prod_flag --yes --token="$VERCEL_TOKEN"
+          url=$(vercel deploy --prebuilt $prod_flag --yes --token="$VERCEL_TOKEN")
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"

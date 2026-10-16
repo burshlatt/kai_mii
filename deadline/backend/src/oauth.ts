@@ -24,16 +24,21 @@ export function providerConfigured(provider: OAuthProvider, config: AppConfig): 
   return Boolean(config.yandexClientId && config.yandexClientSecret);
 }
 
-export function redirectUri(provider: OAuthProvider, config: AppConfig): string {
-  return `${config.publicApiOrigin}/api/auth/oauth/${provider}/callback`;
+export function redirectUri(
+  provider: OAuthProvider,
+  config: AppConfig,
+  origin = config.publicApiOrigin,
+): string {
+  return `${origin}/api/auth/oauth/${provider}/callback`;
 }
 
 export function buildAuthorizeUrl(
   provider: OAuthProvider,
   state: string,
   config: AppConfig,
+  origin = config.publicApiOrigin,
 ): string {
-  const callback = redirectUri(provider, config);
+  const callback = redirectUri(provider, config, origin);
   if (provider === 'google') {
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', config.googleClientId);
@@ -53,16 +58,25 @@ export function buildAuthorizeUrl(
   return url.toString();
 }
 
-export function issueState(res: Response, config: AppConfig): string {
+export function issueState(res: Response, config: AppConfig, secure = config.cookieSecure): string {
   const state = crypto.randomBytes(24).toString('hex');
   res.cookie(OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: config.cookieSecure,
+    secure,
     path: '/',
     maxAge: 10 * 60 * 1000,
   });
   return state;
+}
+
+export function clearState(res: Response, secure: boolean): void {
+  res.clearCookie(OAUTH_STATE_COOKIE, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure,
+  });
 }
 
 export function readState(req: Request, expected: unknown): void {
@@ -104,6 +118,7 @@ export async function loadProfile(
   provider: OAuthProvider,
   code: string,
   config: AppConfig,
+  origin = config.publicApiOrigin,
 ): Promise<OAuthProfile> {
   if (provider === 'google') {
     const tokenPayload = await postForm(
@@ -112,7 +127,7 @@ export async function loadProfile(
         code,
         client_id: config.googleClientId,
         client_secret: config.googleClientSecret,
-        redirect_uri: redirectUri(provider, config),
+        redirect_uri: redirectUri(provider, config, origin),
         grant_type: 'authorization_code',
       }),
     );

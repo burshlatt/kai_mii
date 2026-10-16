@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Pool, type QueryResultRow } from 'pg';
 import type {
@@ -41,14 +41,74 @@ export interface UserRecord {
   oauthSubject: string | null;
 }
 
-export function createPool(databaseUrl: string): Pool {
-  return new Pool({ connectionString: databaseUrl });
+const migrationState = globalThis as { deadlineSchemaReady?: boolean };
+const pools = globalThis as { deadlinePool?: Pool };
+const MIGRATION_LOCK_A = 4815;
+const MIGRATION_LOCK_B = 162342;
+
+export function databaseHostname(databaseUrl: string): string {
+  try {
+    return new URL(databaseUrl.replace(/^postgres(ql)?:/, 'http:')).hostname;
+  } catch {
+    return '';
+  }
+}
+
+export function useDatabaseSsl(databaseUrl: string): boolean {
+  const host = databaseHostname(databaseUrl);
+  return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1' && host !== 'db';
+}
+
+export function createPool(databaseUrl: string, options?: { max?: number }): Pool {
+  const serverless = options?.max === 1;
+  return new Pool({
+    connectionString: databaseUrl,
+    ...(options?.max ? { max: options.max } : {}),
+    ...(serverless
+      ? { connectionTimeoutMillis: 10_000, idleTimeoutMillis: 10_000, allowExitOnIdle: true }
+      : {}),
+    ...(useDatabaseSsl(databaseUrl) ? { ssl: { rejectUnauthorized: false } } : {}),
+  });
+}
+
+export function getSharedPool(databaseUrl: string): Pool {
+  if (!pools.deadlinePool) {
+    pools.deadlinePool = createPool(databaseUrl, { max: 1 });
+  }
+  return pools.deadlinePool;
+}
+
+export function loadSchemaSql(): string {
+  const candidates = [
+    path.resolve(__dirname, '../sql/001_init.sql'),
+    path.resolve(process.cwd(), 'backend/sql/001_init.sql'),
+    path.resolve(process.cwd(), 'deadline/backend/sql/001_init.sql'),
+    path.resolve(process.cwd(), 'sql/001_init.sql'),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return readFileSync(candidate, 'utf8');
+    }
+  }
+  throw new Error(`schema sql not found; looked in ${candidates.join(', ')}`);
 }
 
 export async function migrate(pool: Pool): Promise<void> {
-  const sqlPath = path.resolve(__dirname, '../sql/001_init.sql');
-  const sql = readFileSync(sqlPath, 'utf8');
-  await pool.query(sql);
+  if (migrationState.deadlineSchemaReady) {
+    return;
+  }
+  const sql = loadSchemaSql();
+  const client = await pool.connect();
+  try {
+    await client.query('SELECT pg_advisory_lock($1, $2)', [MIGRATION_LOCK_A, MIGRATION_LOCK_B]);
+    await client.query(sql);
+    migrationState.deadlineSchemaReady = true;
+  } finally {
+    await client
+      .query('SELECT pg_advisory_unlock($1, $2)', [MIGRATION_LOCK_A, MIGRATION_LOCK_B])
+      .catch(() => undefined);
+    client.release();
+  }
 }
 
 function mapUser(row: UserRow): UserRecord {
