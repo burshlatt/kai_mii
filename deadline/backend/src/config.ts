@@ -26,7 +26,7 @@ export function getConfig(): AppConfig {
   }
 
   const jwtSecret = process.env.JWT_SECRET ?? '';
-  const databaseUrl = process.env.DATABASE_URL ?? '';
+  const databaseUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || '';
   if (jwtSecret.length < 16) {
     throw new Error('JWT_SECRET must be set and at least 16 characters');
   }

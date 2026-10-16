@@ -1,11 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci --prefix deadline/backend --include=dev && npm ci --prefix deadline/frontend --include=dev",
+  "installCommand": "cd deadline/backend && npm ci --include=dev && cd ../frontend && npm ci --include=dev",
   "buildCommand": "npm run build --prefix deadline/frontend",
   "outputDirectory": "deadline/frontend/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api?__vercel_path=:path*" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
   "functions": {
-    "api/[[...path]].ts": {
+    "api/index.ts": {
       "includeFiles": "deadline/backend/sql/**",
       "maxDuration": 60
     }

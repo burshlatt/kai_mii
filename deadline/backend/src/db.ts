@@ -78,6 +78,13 @@ export function getSharedPool(databaseUrl: string): Pool {
   return pools.deadlinePool;
 }
 
+export function schemaStatements(sql: string): string[] {
+  return sql
+    .split(';')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
 export function loadSchemaSql(): string {
   const candidates = [
     path.resolve(__dirname, '../sql/001_init.sql'),
@@ -101,7 +108,9 @@ export async function migrate(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock($1, $2)', [MIGRATION_LOCK_A, MIGRATION_LOCK_B]);
-    await client.query(sql);
+    for (const statement of schemaStatements(sql)) {
+      await client.query(statement);
+    }
     migrationState.deadlineSchemaReady = true;
   } finally {
     await client

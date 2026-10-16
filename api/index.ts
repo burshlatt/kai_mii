@@ -3,7 +3,7 @@ import { createApp } from '../deadline/backend/src/app';
 import { getConfig } from '../deadline/backend/src/config';
 import { getSharedPool, migrate } from '../deadline/backend/src/db';
 import { logger } from '../deadline/backend/src/logger';
-import { ensureApiPrefix } from '../deadline/backend/src/request-url';
+import { requestUrlForApi } from '../deadline/backend/src/request-url';
 
 type AppHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
@@ -27,7 +27,7 @@ async function boot(): Promise<AppHandler> {
 }
 
 export default function handler(req: IncomingMessage, res: ServerResponse): void {
-  req.url = ensureApiPrefix(req.url);
+  req.url = requestUrlForApi(req.url);
   ready()
     .then((app) => {
       app(req, res);

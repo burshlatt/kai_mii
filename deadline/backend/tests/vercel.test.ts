@@ -4,7 +4,7 @@ import type { Request } from 'express';
 import type { AppConfig } from '../src/config';
 import { loadSchemaSql, useDatabaseSsl } from '../src/db';
 import { oauthBase, originAllowed, siteOrigin } from '../src/origin';
-import { ensureApiPrefix } from '../src/request-url';
+import { ensureApiPrefix, requestUrlForApi } from '../src/request-url';
 
 const config: AppConfig = {
   port: 3001,
@@ -37,6 +37,17 @@ test('remote databases use tls and local ones do not', () => {
   assert.equal(useDatabaseSsl('postgresql://deadline@127.0.0.1:5433/deadline_test'), false);
   assert.equal(useDatabaseSsl('postgresql://deadline:deadline@db:5432/deadline'), false);
   assert.equal(useDatabaseSsl('postgresql://user:pass@ep-example.neon.tech/neondb'), true);
+});
+
+test('vercel rewrite restores the api path and keeps the query', () => {
+  assert.equal(requestUrlForApi('/api?__vercel_path=auth/login'), '/api/auth/login');
+  assert.equal(
+    requestUrlForApi(
+      '/api?__vercel_path=auth/oauth/google/callback&path=auth/oauth/google/callback&code=1&state=2',
+    ),
+    '/api/auth/oauth/google/callback?code=1&state=2',
+  );
+  assert.equal(requestUrlForApi('/api/health'), '/api/health');
 });
 
 test('api prefix is added only when the function mount stripped it', () => {
