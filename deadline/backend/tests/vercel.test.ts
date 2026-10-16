@@ -41,7 +41,10 @@ test('remote databases use tls and local ones do not', () => {
 
 test('api prefix is added only when the function mount stripped it', () => {
   assert.equal(ensureApiPrefix('/api/health'), '/api/health');
-  assert.equal(ensureApiPrefix('/api/auth/oauth/google/callback?code=1'), '/api/auth/oauth/google/callback?code=1');
+  assert.equal(
+    ensureApiPrefix('/api/auth/oauth/google/callback?code=1'),
+    '/api/auth/oauth/google/callback?code=1',
+  );
   assert.equal(ensureApiPrefix('/health'), '/api/health');
   assert.equal(ensureApiPrefix('/cron/health?x=1'), '/api/cron/health?x=1');
   assert.equal(ensureApiPrefix('/'), '/api');
