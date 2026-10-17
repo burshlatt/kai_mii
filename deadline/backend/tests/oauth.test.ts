@@ -17,8 +17,6 @@ function oauthConfig(): AppConfig {
     ...getConfig(),
     googleClientId: 'google-client-id',
     googleClientSecret: 'google-client-secret',
-    yandexClientId: 'yandex-client-id',
-    yandexClientSecret: 'yandex-client-secret',
   };
 }
 
@@ -102,45 +100,6 @@ test('google login creates a session from the provider profile', async () => {
     `SELECT count(*)::text AS count FROM users WHERE oauth_subject = 'google-subject-1'`,
   );
   assert.equal(count.rows[0].count, '1');
-  restoreFetch();
-});
-
-test('yandex login reads the profile and opens a session', async () => {
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url.startsWith('https://oauth.yandex.ru/token')) {
-      return new Response(JSON.stringify({ access_token: 'yandex-access' }), { status: 200 });
-    }
-    if (url.startsWith('https://login.yandex.ru/info')) {
-      const headers = new Headers(init?.headers);
-      assert.equal(headers.get('authorization'), 'OAuth yandex-access');
-      return new Response(
-        JSON.stringify({
-          id: 'yandex-subject-1',
-          default_email: 'oauth-suite-yandex@example.com',
-          real_name: 'Алина Яндекс',
-        }),
-        { status: 200 },
-      );
-    }
-    throw new Error(`unexpected fetch ${url}`);
-  }) as typeof fetch;
-
-  const agent = request.agent(app);
-  const start = await agent.get('/api/auth/oauth/yandex/start').redirects(0);
-  assert.equal(start.status, 302);
-  assert.match(String(start.headers.location), /^https:\/\/oauth\.yandex\.ru\/authorize/);
-  const state = new URL(String(start.headers.location)).searchParams.get('state');
-  const callback = await agent
-    .get('/api/auth/oauth/yandex/callback')
-    .query({ code: 'yandex-code', state })
-    .redirects(0);
-  assert.equal(callback.status, 302);
-  assert.equal(callback.headers.location, 'http://localhost:5173/');
-  const me = await agent.get('/api/auth/me');
-  assert.equal(me.status, 200);
-  assert.equal(me.body.user.email, 'oauth-suite-yandex@example.com');
-  assert.equal(me.body.user.name, 'Алина Яндекс');
   restoreFetch();
 });
 

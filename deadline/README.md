@@ -76,7 +76,7 @@ docker compose up --build
 - `CRON_SECRET` — не короче 16 символов;
 - `COOKIE_SECURE=true`;
 - `FRONTEND_ORIGIN` и `PUBLIC_API_ORIGIN` — `https://<проект>.vercel.app` (после первого деплоя подставьте точный адрес и пересоберите);
-- ключи Google и Яндекс, если нужен OAuth. Redirect URI: `https://<проект>.vercel.app/api/auth/oauth/google/callback` и то же для `yandex`. На превью-адресах OAuth заработает только если этот адрес тоже указан в кабинете провайдера;
+- ключи Google, если нужен OAuth. Redirect URI: `https://<проект>.vercel.app/api/auth/oauth/google/callback`. На превью-адресах OAuth заработает только если этот адрес тоже указан в кабинете Google;
 - `VITE_METRIKA_ID` до сборки, если нужна Метрика. Пустое значение скрипт не вставляет.
 
 Схема применяется на первом запросе к функции. Повтор безопасен: `CREATE TABLE IF NOT EXISTS` и общая блокировка `pg_advisory_lock`. Тот же шаг можно выполнить до открытия сайта:
@@ -113,10 +113,9 @@ Docker Compose, локальный `npm run dev` и выкладка по SSH н
 
 Смысл переменных написан в `.env.example`. Файл `.env` не коммитится.
 
-OAuth заработает после ключей Google и Яндекс ID. Redirect URI:
+OAuth заработает после ключей Google. Redirect URI:
 
 - `http://localhost:5173/api/auth/oauth/google/callback`
-- `http://localhost:5173/api/auth/oauth/yandex/callback`
 
 Локально колбэк идёт через прокси Vite, поэтому cookie сессии остаётся на порту 5173. В Docker `PUBLIC_API_ORIGIN` и `FRONTEND_ORIGIN` — это `http://localhost:8080`.
 

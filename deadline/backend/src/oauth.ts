@@ -5,7 +5,7 @@ import { HttpError } from './http';
 import { tokensMatch } from './auth';
 
 export const OAUTH_STATE_COOKIE = 'deadline_oauth_state';
-export type OAuthProvider = 'google' | 'yandex';
+export type OAuthProvider = 'google';
 
 export interface OAuthProfile {
   subject: string;
@@ -14,14 +14,11 @@ export interface OAuthProfile {
 }
 
 export function isOAuthProvider(value: string): value is OAuthProvider {
-  return value === 'google' || value === 'yandex';
+  return value === 'google';
 }
 
-export function providerConfigured(provider: OAuthProvider, config: AppConfig): boolean {
-  if (provider === 'google') {
-    return Boolean(config.googleClientId && config.googleClientSecret);
-  }
-  return Boolean(config.yandexClientId && config.yandexClientSecret);
+export function providerConfigured(_provider: OAuthProvider, config: AppConfig): boolean {
+  return Boolean(config.googleClientId && config.googleClientSecret);
 }
 
 export function redirectUri(
@@ -39,22 +36,13 @@ export function buildAuthorizeUrl(
   origin = config.publicApiOrigin,
 ): string {
   const callback = redirectUri(provider, config, origin);
-  if (provider === 'google') {
-    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    url.searchParams.set('client_id', config.googleClientId);
-    url.searchParams.set('redirect_uri', callback);
-    url.searchParams.set('response_type', 'code');
-    url.searchParams.set('scope', 'openid email profile');
-    url.searchParams.set('state', state);
-    url.searchParams.set('prompt', 'select_account');
-    return url.toString();
-  }
-  const url = new URL('https://oauth.yandex.ru/authorize');
-  url.searchParams.set('client_id', config.yandexClientId);
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', config.googleClientId);
   url.searchParams.set('redirect_uri', callback);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'login:email login:info');
+  url.searchParams.set('scope', 'openid email profile');
   url.searchParams.set('state', state);
+  url.searchParams.set('prompt', 'select_account');
   return url.toString();
 }
 
@@ -120,48 +108,26 @@ export async function loadProfile(
   config: AppConfig,
   origin = config.publicApiOrigin,
 ): Promise<OAuthProfile> {
-  if (provider === 'google') {
-    const tokenPayload = await postForm(
-      'https://oauth2.googleapis.com/token',
-      new URLSearchParams({
-        code,
-        client_id: config.googleClientId,
-        client_secret: config.googleClientSecret,
-        redirect_uri: redirectUri(provider, config, origin),
-        grant_type: 'authorization_code',
-      }),
-    );
-    const accessToken = readAccessToken(tokenPayload);
-    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!profileResponse.ok) {
-      throw new HttpError(502, 'oauth_profile', 'Не удалось получить профиль Google.');
-    }
-    const profile: unknown = await profileResponse.json();
-    return readGoogleProfile(profile);
-  }
-
   const tokenPayload = await postForm(
-    'https://oauth.yandex.ru/token',
+    'https://oauth2.googleapis.com/token',
     new URLSearchParams({
       code,
-      client_id: config.yandexClientId,
-      client_secret: config.yandexClientSecret,
+      client_id: config.googleClientId,
+      client_secret: config.googleClientSecret,
+      redirect_uri: redirectUri(provider, config, origin),
       grant_type: 'authorization_code',
     }),
   );
   const accessToken = readAccessToken(tokenPayload);
-  const profileResponse = await fetch('https://login.yandex.ru/info?format=json', {
-    headers: { Authorization: `OAuth ${accessToken}` },
+  const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(10000),
   });
   if (!profileResponse.ok) {
-    throw new HttpError(502, 'oauth_profile', 'Не удалось получить профиль Яндекса.');
+    throw new HttpError(502, 'oauth_profile', 'Не удалось получить профиль Google.');
   }
   const profile: unknown = await profileResponse.json();
-  return readYandexProfile(profile);
+  return readGoogleProfile(profile);
 }
 
 function readGoogleProfile(profile: unknown): OAuthProfile {
@@ -180,25 +146,4 @@ function readGoogleProfile(profile: unknown): OAuthProfile {
     email,
     name: typeof name === 'string' && name.trim() ? name : email,
   };
-}
-
-function readYandexProfile(profile: unknown): OAuthProfile {
-  if (typeof profile !== 'object' || profile === null) {
-    throw new HttpError(502, 'oauth_profile', 'Профиль Яндекса пустой.');
-  }
-  const record = profile as Record<string, unknown>;
-  const subject = record.id;
-  const email = record.default_email;
-  const realName = record.real_name;
-  const displayName = record.display_name;
-  if (typeof subject !== 'string' || typeof email !== 'string') {
-    throw new HttpError(502, 'oauth_profile', 'Яндекс не передал почту.');
-  }
-  const name =
-    typeof realName === 'string' && realName.trim()
-      ? realName
-      : typeof displayName === 'string' && displayName.trim()
-        ? displayName
-        : email;
-  return { subject, email, name };
 }

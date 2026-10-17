@@ -16,8 +16,6 @@ const config: AppConfig = {
   cookieSecure: false,
   googleClientId: '',
   googleClientSecret: '',
-  yandexClientId: '',
-  yandexClientSecret: '',
 };
 
 function requestWith(headers: Record<string, string>): Request {

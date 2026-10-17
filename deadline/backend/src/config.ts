@@ -14,8 +14,6 @@ export interface AppConfig {
   cookieSecure: boolean;
   googleClientId: string;
   googleClientSecret: string;
-  yandexClientId: string;
-  yandexClientSecret: string;
 }
 
 let cached: AppConfig | undefined;
@@ -44,8 +42,6 @@ export function getConfig(): AppConfig {
     cookieSecure: process.env.COOKIE_SECURE === 'true',
     googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-    yandexClientId: process.env.YANDEX_CLIENT_ID ?? '',
-    yandexClientSecret: process.env.YANDEX_CLIENT_SECRET ?? '',
   };
   return cached;
 }

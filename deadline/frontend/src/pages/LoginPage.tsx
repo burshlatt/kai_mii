@@ -76,11 +76,8 @@ export function LoginPage(): JSX.Element {
           Войти
         </button>
       </form>
-      <div className="mt-6 grid gap-3">
-        <a className={`${ghostClass} text-center`} href="/api/auth/oauth/yandex/start">
-          Войти через Яндекс
-        </a>
-        <a className={`${ghostClass} text-center`} href="/api/auth/oauth/google/start">
+      <div className="mt-6">
+        <a className={`${ghostClass} block text-center`} href="/api/auth/oauth/google/start">
           Войти через Google
         </a>
       </div>
